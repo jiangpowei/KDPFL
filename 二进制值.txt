@@ -1,0 +1,10 @@
+Sub SetValues()
+    Dim cell As Range
+    For Each cell In Selection
+        If cell.Value = "" Then
+            cell.Value = 0
+        ElseIf IsNumeric(cell.Value) = False Then '判断是否为非数值（即文本）
+            cell.Value = 1
+        End If
+    Next cell
+End Sub

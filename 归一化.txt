@@ -1,0 +1,30 @@
+Sub NormalizeSelection()
+    Dim rng As Range
+    Dim cell As Range
+    Dim minVal As Double, maxVal As Double
+    Dim value As Double
+    
+    ' 确保有选中区域
+    If Selection.Cells.Count = 0 Then
+        MsgBox "请先选择要归一化的单元格区域！", vbExclamation
+        Exit Sub
+    End If
+    
+    Set rng = Selection
+    minVal = WorksheetFunction.Min(rng)
+    maxVal = WorksheetFunction.Max(rng)
+    
+    ' 检查是否所有值都相同（避免除以零）
+    If minVal = maxVal Then
+        MsgBox "选中区域的所有值都相同，无法进行归一化！", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 应用归一化公式
+    For Each cell In rng
+        value = (cell.value - minVal) / (maxVal - minVal)
+        cell.value = value
+    Next cell
+    
+    MsgBox "归一化完成！", vbInformation
+End Sub

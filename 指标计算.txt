@@ -1,0 +1,164 @@
+Sub CalculateRegressionMetrics()
+    Dim actualRange As Range, predictedRange As Range
+    Dim ws As Worksheet, resultWs As Worksheet
+    Dim lastRow As Long, i As Long
+    Dim actualValue As Double, predictedValue As Double
+    Dim sumSquaredError As Double, sumAbsoluteError As Double
+    Dim sumAbsolutePercentError As Double
+    Dim actualMean As Double, sumActual As Double
+    Dim totalSumOfSquares As Double, residualSumOfSquares As Double
+    Dim count As Long
+    
+    ' 选择真实值列（第一列）
+    On Error Resume Next
+    Set actualRange = Application.InputBox( _
+        Prompt:="请选择真实值列（第一列）", _
+        Title:="选择真实值", _
+        Type:=8)
+    On Error GoTo 0
+    
+    ' 检查用户是否取消选择
+    If actualRange Is Nothing Then
+        MsgBox "未选择真实值列，操作取消。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 确保只选择了一列
+    If actualRange.Columns.Count > 1 Then
+        MsgBox "请只选择一列数据作为真实值。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 选择预测值列（第二列）
+    On Error Resume Next
+    Set predictedRange = Application.InputBox( _
+        Prompt:="请选择预测值列（第二列）", _
+        Title:="选择预测值", _
+        Type:=8)
+    On Error GoTo 0
+    
+    ' 检查用户是否取消选择
+    If predictedRange Is Nothing Then
+        MsgBox "未选择预测值列，操作取消。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 确保只选择了一列
+    If predictedRange.Columns.Count > 1 Then
+        MsgBox "请只选择一列数据作为预测值。", vbExclamation
+        Exit Sub
+    End If
+    
+    ' 确定要处理的行数（取两列中较少的行数）
+    lastRow = Application.WorksheetFunction.Min(actualRange.Rows.Count, predictedRange.Rows.Count)
+    
+    ' 初始化变量
+    sumSquaredError = 0
+    sumAbsoluteError = 0
+    sumAbsolutePercentError = 0
+    sumActual = 0
+    totalSumOfSquares = 0
+    residualSumOfSquares = 0
+    count = 0
+    
+    ' 关闭屏幕更新以提高性能
+    Application.ScreenUpdating = False
+    
+    ' 计算各项总和
+    For i = 1 To lastRow
+        ' 检查单元格是否为有效数字
+        If IsNumeric(actualRange.Cells(i, 1).Value) And IsNumeric(predictedRange.Cells(i, 1).Value) Then
+            actualValue = actualRange.Cells(i, 1).Value
+            predictedValue = predictedRange.Cells(i, 1).Value
+            
+            ' 跳过真实值为0的情况（避免MAPE计算中除以0）
+            If actualValue <> 0 Then
+                ' 累加用于计算指标的值
+                sumSquaredError = sumSquaredError + (actualValue - predictedValue) ^ 2
+                sumAbsoluteError = sumAbsoluteError + Abs(actualValue - predictedValue)
+                sumAbsolutePercentError = sumAbsolutePercentError + Abs((actualValue - predictedValue) / actualValue)
+                sumActual = sumActual + actualValue
+                count = count + 1
+            End If
+        End If
+    Next i
+    
+    ' 检查是否有有效数据
+    If count = 0 Then
+        MsgBox "未找到有效数据或真实值包含0，无法计算指标。", vbExclamation
+        Application.ScreenUpdating = True
+        Exit Sub
+    End If
+    
+    ' 计算平均值
+    actualMean = sumActual / count
+    
+    ' 重新计算总平方和与残差平方和（用于R-squared）
+    For i = 1 To lastRow
+        If IsNumeric(actualRange.Cells(i, 1).Value) And IsNumeric(predictedRange.Cells(i, 1).Value) Then
+            actualValue = actualRange.Cells(i, 1).Value
+            predictedValue = predictedRange.Cells(i, 1).Value
+            
+            If actualValue <> 0 Then
+                totalSumOfSquares = totalSumOfSquares + (actualValue - actualMean) ^ 2
+                residualSumOfSquares = residualSumOfSquares + (actualValue - predictedValue) ^ 2
+            End If
+        End If
+    Next i
+    
+    ' 计算各项指标
+    Dim MSE As Double, RMSE As Double, MAE As Double
+    Dim RSquared As Double, MAPE As Double
+    
+    MSE = sumSquaredError / count
+    RMSE = Sqr(MSE)
+    MAE = sumAbsoluteError / count
+    MAPE = (sumAbsolutePercentError / count) * 100 ' 转换为百分比
+    
+    ' 计算R-squared（避免除以0）
+    If totalSumOfSquares = 0 Then
+        RSquared = 1 ' 所有真实值都相同且预测完美
+    Else
+        RSquared = 1 - (residualSumOfSquares / totalSumOfSquares)
+    End If
+    
+    ' 创建结果工作表
+    Set resultWs = ThisWorkbook.Worksheets.Add
+    resultWs.Name = "评估指标结果"
+    
+    ' 输出结果
+    With resultWs
+        .Range("A1").Value = "评估指标"
+        .Range("B1").Value = "值"
+        .Range("A1:B1").Font.Bold = True
+        
+        .Range("A2").Value = "MSE (均方误差)"
+        .Range("B2").Value = MSE
+        
+        .Range("A3").Value = "RMSE (均方根误差)"
+        .Range("B3").Value = RMSE
+        
+        .Range("A4").Value = "MAE (平均绝对误差)"
+        .Range("B4").Value = MAE
+        
+        .Range("A5").Value = "R-squared (决定系数)"
+        .Range("B5").Value = RSquared
+        
+        .Range("A6").Value = "MAPE (平均绝对百分比误差)"
+        .Range("B6").Value = MAPE & "%"
+        
+        ' 设置数字格式
+        .Range("B2:B5").NumberFormat = "0.0000"
+        .Range("B6").NumberFormat = "0.00%"
+        
+        ' 调整列宽
+        .Columns("A:B").AutoFit
+    End With
+    
+    ' 恢复屏幕更新
+    Application.ScreenUpdating = True
+    
+    MsgBox "计算完成！共处理了 " & count & " 行有效数据。" & vbCrLf & _
+           "结果已显示在新工作表中。", vbInformation
+End Sub
+    
